@@ -56,8 +56,14 @@ function createSubconsciousProvider(enableThinking: boolean) {
 /** Thinking off by default — faster replies, no reasoning preamble. */
 const subconscious = createSubconsciousProvider(false);
 
+/** Thinking on — model emits <think>…</think> before its answer. */
+const subconsciousThinking = createSubconsciousProvider(true);
+
 /** Chat completions API — Subconscious does not support /v1/responses. */
 export const subconsciousModel = subconscious.chat(SUBCONSCIOUS_MODEL_ID);
+
+/** Same model with chain-of-thought reasoning enabled. */
+export const subconsciousThinkingModel = subconsciousThinking.chat(SUBCONSCIOUS_MODEL_ID);
 
 export function requireSubconsciousApiKey() {
   const apiKey = process.env.SUBCONSCIOUS_API_KEY;

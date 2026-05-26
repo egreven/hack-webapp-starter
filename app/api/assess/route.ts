@@ -1,5 +1,8 @@
-import { generateText } from "ai";
-import { subconsciousModel, requireSubconsciousApiKey } from "@/lib/subconscious";
+import { streamText } from "ai";
+import {
+  subconsciousThinkingModel,
+  requireSubconsciousApiKey,
+} from "@/lib/subconscious";
 
 export const maxDuration = 60;
 
@@ -25,6 +28,10 @@ export interface AssessmentResult {
   severity: "high" | "medium" | "low";
   resolution: "full_refund" | "full_replacement" | "partial_replacement" | "coupon";
   explanation: string;
+  thinking?: string;
+  durationMs: number;
+  usage: { inputTokens: number; outputTokens: number };
+  model: string;
 }
 
 export async function POST(request: Request) {
@@ -44,46 +51,20 @@ export async function POST(request: Request) {
     return Response.json({ error: "imageDataUrl is required" }, { status: 400 });
   }
 
-  const mediaType = imageDataUrl.startsWith("data:image/png")
-    ? "image/png"
-    : imageDataUrl.startsWith("data:image/webp")
-      ? "image/webp"
-      : "image/jpeg";
-
   const base64Data = imageDataUrl.split(",")[1];
 
-  try {
-    const { text } = await generateText({
-      model: subconsciousModel,
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "image",
-              image: base64Data,
-              mimeType: mediaType,
-            },
-            {
-              type: "text",
-              text: ASSESSMENT_PROMPT,
-            },
-          ],
-        },
-      ],
-    });
+  const result = streamText({
+    model: subconsciousThinkingModel,
+    messages: [
+      {
+        role: "user",
+        content: [
+          { type: "image", image: base64Data },
+          { type: "text", text: ASSESSMENT_PROMPT },
+        ],
+      },
+    ],
+  });
 
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      return Response.json({ error: "Model did not return valid JSON", raw: text }, { status: 500 });
-    }
-
-    const result: AssessmentResult = JSON.parse(jsonMatch[0]);
-    return Response.json(result);
-  } catch (error) {
-    return Response.json(
-      { error: error instanceof Error ? error.message : "Assessment failed" },
-      { status: 500 },
-    );
-  }
+  return result.toTextStreamResponse();
 }
